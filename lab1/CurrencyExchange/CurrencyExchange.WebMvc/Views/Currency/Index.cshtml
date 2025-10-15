@@ -1,0 +1,105 @@
+﻿@model ConvertViewModel
+@{
+    ViewData["Title"] = "Currency Converter";
+}
+
+<h2>Currency Converter</h2>
+
+@* Pokaż błędy walidacji *@
+@Html.ValidationSummary(excludePropertyErrors: true)
+
+<form asp-action="Convert" method="post" novalidate>
+    <div>
+        <label>Amount</label>
+        <input name="Amount"
+               value="@Model.Amount"
+               inputmode="decimal"
+               maxlength="13"
+               pattern="^(\d{1,10}([.,]\d{0,2})?|[.,]\d{1,2})$"
+               placeholder="np. 1234567890, 123.45, .5"
+               oninput="sanitizeAmount(this)"
+               onblur="formatAmount2(this)"
+               onpaste="setTimeout(()=>sanitizeAmount(this))" />
+        @Html.ValidationMessageFor(m => m.Amount)
+    </div>
+
+    <div>
+        <label>Source</label>
+        <input name="SourceCode"
+               value="@Model.SourceCode"
+               maxlength="3"
+               pattern="[A-Za-z]{3}"
+               style="text-transform:uppercase"
+               oninput="this.value=this.value.toUpperCase().replace(/[^A-Za-z]/g,'').slice(0,3);" />
+        @Html.ValidationMessageFor(m => m.SourceCode)
+    </div>
+
+    <div>
+        <label>Target</label>
+        <input name="TargetCode"
+               value="@Model.TargetCode"
+               maxlength="3"
+               pattern="[A-Za-z]{3}"
+               style="text-transform:uppercase"
+               oninput="this.value=this.value.toUpperCase().replace(/[^A-Za-z]/g,'').slice(0,3);" />
+        @Html.ValidationMessageFor(m => m.TargetCode)
+    </div>
+
+    <button type="submit">Convert</button>
+</form>
+
+@if (!string.IsNullOrWhiteSpace(Model.Error))
+{
+    <p style="color:red">@Model.Error</p>
+}
+@if (!string.IsNullOrWhiteSpace(Model.Result))
+{
+    <h3>Result: @Model.Result</h3>
+    <p>@Model.LastUpdated</p>
+}
+
+@section Scripts {
+    <script>
+        // Przycinanie do: tylko cyfry + jedna kropka/przecinek; max 10 cyfr przed, max 2 po
+        function sanitizeAmount(el) {
+          let v = (el.value || '').replace(',', '.');
+          // tylko cyfry i kropki
+          v = v.replace(/[^0-9.]/g, '');
+          // tylko jedna kropka
+          const i = v.indexOf('.');
+          if (i !== -1) v = v.slice(0, i+1) + v.slice(i+1).replace(/\./g, '');
+
+          // rozbij
+          let [intPart = '', fracPart = ''] = v.split('.');
+          // max 10 cyfr przed
+          if (intPart.length > 10) intPart = intPart.slice(0,10);
+          // max 2 po
+          if (fracPart.length > 2) fracPart = fracPart.slice(0,2);
+
+          // dopuszczamy samego '.' (użytkownik pisze) → pokaż '0.' żeby było czytelnie
+          if (intPart === '' && i === 0) intPart = '0';
+
+          el.value = (i !== -1) ? `${intPart}.${fracPart}` : intPart;
+        }
+
+        // Auto-uzupełnienie na blur: 100. -> 100.00, 100.2 -> 100.20, .5 -> 0.50
+        function formatAmount2(el) {
+          let v = (el.value || '').trim().replace(',', '.');
+          if (v === '') return;
+
+          // Jeśli zaczyna się od '.' → dopisz 0 z przodu
+          if (v.startsWith('.')) v = '0' + v;
+
+          if (!v.includes('.')) {
+            // brak separatora → dodaj .00
+            v = v + '.00';
+          } else {
+            const [intPart, fracPartRaw=''] = v.split('.');
+            let fracPart = (fracPartRaw + '00').slice(0,2); // dopelnij zerami do 2
+            v = intPart + '.' + fracPart;
+          }
+          el.value = v;
+        }
+    </script>
+}
+
